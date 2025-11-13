@@ -24,3 +24,8 @@ Use `esp-generate --chip esp32c6 myproject` and follow configuration as necessar
 ## Run
 
 `cargo run` build the binaries that can then be simulated via Wokwi
+
+
+## Checkout this next:
+- [Three LED on Xiao ESP32-C6](https://wokwi.com/projects/411265368570177537)
+- [Wiki - XIAO ESP32-C6 Getting Started ](https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/)
