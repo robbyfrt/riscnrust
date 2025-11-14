@@ -8,8 +8,7 @@
             "top": 0.59,
             "left": 0.67,
             "attrs": {
-                "flashSize": "16",
-                "serialInterface": "USB_SERIAL_JTAG"
+                "flashSize": "16"
             }
         },
         {   
@@ -26,19 +25,7 @@
     "connections": [
         [ "esp:D0", "led1:A", "green", [ "h0" ] ],
         [ "led1:C", "r1:1", "black", [ "v0" ] ],
-        [ "r1:2", "esp:GND", "black", [ "h90.82", "v0" ] ],
-        [
-            "esp:TX",
-            "$serialMonitor:RX",
-            "",
-            []
-        ],
-        [
-            "esp:RX",
-            "$serialMonitor:TX",
-            "",
-            []
-        ]
+        [ "r1:2", "esp:GND", "black", [ "h90.82", "v0" ] ]
     ],
     "serialMonitor": {
         "display": "terminal",

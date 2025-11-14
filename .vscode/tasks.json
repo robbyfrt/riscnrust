@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-debug",
+            "type": "shell",
+            "command": "sh",
+            "args": [
+                "-c",
+                "cargo build && espflash save-image --chip esp32c6 target/riscv32imac-esp-espidf/debug/${workspaceFolderBasename} target/riscv32imac-esp-espidf/debug/${workspaceFolderBasename}.img"
+            ],
+            "group": "build",
+            "problemMatcher": "$rustc"
+        }
+    ]
+}
