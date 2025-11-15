@@ -8,6 +8,7 @@
             },  
             "request": "launch",
             "name": "Launch",
+            //"probe": "1231232" // get from probe-rs list and use serial no or vendor id
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "build-debug",
             "chip": "esp32c6",

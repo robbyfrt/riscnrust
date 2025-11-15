@@ -9,7 +9,10 @@
                 "-c",
                 "cargo build && espflash save-image --chip esp32c6 target/riscv32imac-esp-espidf/debug/${workspaceFolderBasename} target/riscv32imac-esp-espidf/debug/${workspaceFolderBasename}.img"
             ],
-            "group": "build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
             "problemMatcher": "$rustc"
         }
     ]
