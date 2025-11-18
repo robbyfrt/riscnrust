@@ -120,3 +120,37 @@ graph TB
     style EHAL fill:#fff9c4
     style ESVC fill:#fff59d
 ```
+
+## Hardware Overview
+- ESP32-C6 from seeedstudio xiao series
+  - 160MHz 320KB ROM, 512KB SRAM
+  - RiscV core, ble, wifi, thread
+  - 20mHz low power core
+- Xiao Starter Kit
+  - Xiao Expansion Board
+    - OLED Display: SSD1306
+    - clock: PCF8563
+  - several other Grove Sensors
+- ePaper Driver board
+  - battery & power mgmt: ETA9740
+  - 2"-bw-epaper display: ssd1680
+- xiao ml kit:
+  - https://www.mlsysbook.ai/contents/labs/seeed/xiao_esp32s3/setup/setup.html
+  - ESP32-S3 xtensa-based chip
+    - dual core 240MHz
+    - 8MB PSRAM 8MB Flash, 32GB SD-card 
+    - wifi, 14uA deep sleep
+  - 6-axis-imu: LSM6DS3TR-C 0x6a
+  - camera: OV2640 
+  - OLED: SSD1306 0x3c
+
+next:
+- esp32-p4
+  - dual core 400MHz
+  - Memory 
+    - 128 KB of high-performance system ROM
+    - 768 KB of high-performance (HP) L2 memory (L2MEM)
+    - 32 KB of low-power (LP) SRAM
+    - 32 MB PSRAM stacked in the package, and the QSPI interface is connected to 16MB Nor Flash
+  - additional ESP32-C6 for connectivity
+  - PoE, Mipi-CSI, Mipi-DSI
