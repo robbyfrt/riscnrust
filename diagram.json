@@ -7,7 +7,7 @@
       "id": "esp",
       "top": 0.59,
       "left": 0.67,
-      "attrs": { "flashSize": "16" }
+      "attrs": { "flashSize": "16", "serialInterface": "USB_SERIAL_JTAG"  }
     },
     { "type": "wokwi-led", "id": "led1", "top": 100, "left": -50, "attrs": { "color": "red" } },
     {

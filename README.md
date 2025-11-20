@@ -54,117 +54,99 @@ Use `esp-generate --chip esp32c6 myproject` and follow configuration as necessar
 ## Architectural Overview of Embedded Rust via ESP-IDF
 
 ```mermaid
-graph TB
+---
+title: Software Stack
+config:
+  flowchart:
+    defaultRenderer: "elk"
+---
 
-    
-    subgraph RUST_APP["Your Rust Application Layer"]
-        APP_STD["Your std Rust App<br/><i>Uses std library</i>"]
-        APP_NOSTD["Your no_std Rust App<br/><i>Bare metal, no allocator</i>"]
+flowchart TD
+    subgraph "Development Tools - IDE Layer"
+        VSCODE[VSCode + rust-analyzer<br/><i>Your chosen IDE</i>]
+        PIO[Platform.IO<br/><i>Alternative build system supporting</i><br/><i>both Arduino & ESP-IDF frameworks</i>]
     end
     
-    subgraph HIGH_SVC["High-Level Service Abstractions"]
-        SVC["esp-idf-svc<br/><i>WiFi, MQTT, HTTP server, NVS</i><br/><i>Wraps ESP-IDF services safely</i>"]
+    subgraph "Your Application Code"
+        APP[Your Rust Application<br/><i>Business logic, sensor loops, WiFi handling</i>]
     end
     
-    subgraph DRIVERS_LAYER["Device Driver Ecosystem"]
-        DRIVERS["Community Drivers<br/><i>embedded_aht20, dht-embedded, bme280</i><br/><i>Platform-independent via traits</i>"]
+    subgraph "Board Support Layer - BSP"
+        BSP_IDF[Board Support Packages C<br/><i>esp-bsp repo: pre-configured drivers for</i><br/><i>dev boards like M5Stack, ESP-BOX, etc.</i>]
+        BSP_RUST[Board Support Packages Rust<br/><i>Future: xiao-esp32c6-bsp crates</i><br/><i>Board-specific pin mappings & peripherals</i>]
     end
     
-    subgraph HAL_LAYER["Hardware Abstraction - Two Paths"]
-        direction LR
-        subgraph STD_PATH["std Path (ESP-IDF based)"]
-            HAL["esp-idf-hal<br/><i>Safe wrappers for GPIO, SPI, I2C, UART</i><br/><i>Builds on ESP-IDF drivers</i>"]
-        end
-        
-        subgraph NOSTD_PATH["no_std Path (Bare Metal)"]
-            ESPHAL["esp-hal<br/><i>Pure Rust, direct register access</i><br/><i>No ESP-IDF dependency</i>"]
-        end
-        
-        EHAL["embedded-hal traits<br/><i>Industry standard: InputPin, OutputPin,</i><br/><i>SpiDevice, I2cDevice - portable across MCUs</i>"]
-        ESVC["embedded-svc traits<br/><i>Service interfaces: WiFi, HTTP, etc.</i>"]
+    subgraph "ESP-IDF Path - std Your Choice"
+        SVC[esp-idf-svc<br/><i>High-level services: WiFi, MQTT,</i><br/><i>HTTP server, NVS storage, OTA updates</i>]
+        HAL_IDF[esp-idf-hal<br/><i>Safe Rust HAL: GPIO, SPI, I2C, UART,</i><br/><i>PWM, ADC, timers - wraps ESP-IDF drivers</i>]
+        SYS[esp-idf-sys<br/><i>Raw unsafe FFI bindings via bindgen</i><br/><i>Direct access to all ESP-IDF C functions</i>]
     end
     
-    subgraph BIND_LAYER["FFI Bindings Layer"]
-        SYS["esp-idf-sys<br/><i>Unsafe raw bindings via bindgen</i><br/><i>Direct access to all ESP-IDF C functions</i>"]
+    subgraph "Bare Metal Path - no_std Not Your Focus"
+        HAL_BARE[esp-hal<br/><i>Pure Rust bare-metal HAL</i><br/><i>Direct register manipulation, no C deps</i>]
+        PAC[PAC - Peripheral Access Crate<br/><i>esp32c6, esp32c3, etc. crates</i><br/><i>Auto-generated from SVD files via svd2rust</i><br/><i>Type-safe register access layer</i>]
     end
     
-    subgraph C_FRAMEWORK["C Framework Ecosystem"]
-        IDF["ESP-IDF Framework<br/><i>Official Espressif SDK in C</i><br/><i>WiFi/BLE stacks, peripheral drivers</i>"]
-        ARDUINO["Arduino Framework<br/><i>Simplified C++ API built as ESP-IDF component</i><br/><i>digitalWrite(), Serial, etc.</i>"]
+    subgraph "Portable Abstractions - Traits"
+        DRIVERS[Community Device Drivers<br/><i>embedded_aht20, dht-embedded, bme280</i><br/><i>Platform-independent sensor libraries</i>]
+        EHAL[embedded-hal traits<br/><i>Standard hardware interfaces:</i><br/><i>InputPin, OutputPin, SpiDevice, I2cDevice</i><br/><i>Makes drivers portable across all MCUs</i>]
+        ESVC[embedded-svc traits<br/><i>Standard service interfaces:</i><br/><i>WiFi, HTTP, MQTT abstractions</i>]
     end
     
-    subgraph RTOS_LAYER["Real-Time Operating System"]
-        RTOS["FreeRTOS<br/><i>Task scheduler, queues, mutexes, semaphores</i><br/><i>Lightweight RTOS - not a full OS like Linux</i>"]
+    subgraph "C Framework Layer - Espressif Provided"
+        IDF[ESP-IDF Framework<br/><i>Official C framework: peripheral drivers,</i><br/><i>WiFi/BLE stacks, power management, crypto</i>]
+        ARDUINO[Arduino Framework<br/><i>Built ON TOP of ESP-IDF as component</i><br/><i>Adds digitalWrite, Serial.print API</i><br/><i>40% larger binaries, limited ESP32-C6 support</i><br/><i>Not used in your Rust setup</i>]
     end
     
-    subgraph HW_LAYER["Silicon & External Hardware"]
-        HW["ESP32-C6 / XIAO Hardware<br/><i>RISC-V core, memory-mapped registers</i><br/><i>GPIO, SPI, I2C, ADC, WiFi/BLE radio</i>"]
-        SENSOR["External Devices<br/><i>Humidity sensors, displays, buttons, LEDs</i>"]
+    subgraph "Operating System Layer"
+        RTOS[FreeRTOS<br/><i>Real-time kernel bundled with ESP-IDF</i><br/><i>Task scheduling, queues, mutexes, semaphores</i><br/><i>Much simpler than Linux - no processes/filesystems</i>]
     end
     
-    subgraph TOOLING["Build Toolchain & Flashing"]
-        ESPUP["espup<br/><i>Installs Rust toolchain for Xtensa</i><br/><i>RISC-V uses standard Rust</i>"]
-        CARGO["cargo / rustc<br/><i>Rust build system</i>"]
-        FLASH["cargo-espflash<br/><i>Flashes firmware to device</i>"]
-        GDB["GDB<br/><i>Debugger for both paths</i>"]
- 				VSCODE["VSCode<br/><i>Your IDE</i>"]
-        PIO["PlatformIO<br/><i>Alternative build system/IDE</i><br/><i>Supports C/C++ with Arduino/ESP-IDF</i>"]
-
+    subgraph "Hardware Layer"
+        HW[ESP32-C6 Silicon<br/><i>Memory-mapped registers control:</i><br/><i>GPIO banks, SPI/I2C/UART controllers,</i><br/><i>WiFi 6 radio, BLE 5, ADC, DAC, timers, DMA</i>]
+        SENSOR[External Devices<br/><i>XIAO sensors, displays,</i><br/><i>buttons, humidity/temp sensors, motors</i>]
     end
     
+    VSCODE -.develops.-> APP
+    PIO -.alternative too.-> VSCODE
+    PIO -.can build.-> IDF
+    PIO -.can build.-> ARDUINO
     
-    %% Development environment connections
-    VSCODE -->|"compiles with"| CARGO
-    VSCODE -->|"flashes with"| FLASH
-    VSCODE -->|"debugs with"| GDB
-    PIO -.->|"can build Arduino/ESP-IDF"| ARDUINO
-    PIO -.->|"can build"| IDF
+    APP -->|uses services| SVC
+    APP -->|reads sensors via| DRIVERS
+    APP -->|controls GPIO via| HAL_IDF
+    APP -.bare metal route.-> HAL_BARE
     
-    %% Toolchain connections
-    ESPUP -->|"installs for Xtensa chips"| CARGO
-    CARGO -->|"builds std projects"| APP_STD
-    CARGO -->|"builds no_std projects"| APP_NOSTD
-    FLASH -->|"uploads to"| HW
-    GDB -->|"debugs on"| HW
+    BSP_IDF -->|wraps| IDF
+    BSP_RUST -->|wraps| HAL_IDF
+    APP -.can use.-> BSP_RUST
     
-    %% std application path
-    APP_STD -->|"uses high-level services"| SVC
-    APP_STD -->|"uses device drivers"| DRIVERS
-    APP_STD -->|"uses HAL directly"| HAL
+    SVC -->|builds on| HAL_IDF
+    SVC -->|direct access when needed| SYS
+    SVC -.implements.-> ESVC
     
-    %% no_std application path
-    APP_NOSTD -->|"uses device drivers"| DRIVERS
-    APP_NOSTD -->|"uses bare metal HAL"| ESPHAL
+    DRIVERS -->|require| EHAL
+    DRIVERS -->|work with any HAL implementing| HAL_IDF
+    DRIVERS -->|work with any HAL implementing| HAL_BARE
     
-    %% Service layer
-    SVC -->|"wraps safely"| HAL
-    SVC -->|"calls when needed"| SYS
-    SVC -.->|"implements"| ESVC
+    HAL_IDF -->|wraps via FFI| SYS
+    HAL_IDF -.implements.-> EHAL
     
-    %% Driver connections
-    DRIVERS -->|"programs against traits"| EHAL
+    HAL_BARE -->|reads/writes| PAC
+    HAL_BARE -.implements.-> EHAL
     
-    %% HAL layers - std path
-    HAL -->|"wraps ESP-IDF drivers via"| SYS
-    HAL -.->|"implements for portability"| EHAL
+    SYS -->|binds to| IDF
     
-    %% HAL layers - no_std path
-    ESPHAL -->|"writes directly to"| HW
-    ESPHAL -.->|"implements for portability"| EHAL
+    PAC -->|generated from SVD| HW
+    PAC -->|type-safe register access| HW
     
-    %% Bindings to C framework
-    SYS -->|"generates bindings to"| IDF
+    IDF -->|uses| RTOS
+    IDF -->|configures registers in| HW
+    ARDUINO -->|wrapped as component in| IDF
     
-    %% C framework relationships
-    ARDUINO -->|"built as component of"| IDF
-    IDF -->|"runs on top of"| RTOS
-    IDF -->|"configures & drives"| HW
+    RTOS -->|schedules tasks on| HW
     
-    %% RTOS to hardware
-    RTOS -->|"manages timing for"| HW
-    
-    %% Hardware connections
-    HW <-->|"communicates via I2C/SPI"| SENSOR
+    HW <-->|communicates via I2C/SPI/GPIO| SENSOR
 ```
 
 ## Hardware Overview
