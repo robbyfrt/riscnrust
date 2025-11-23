@@ -1,4 +1,13 @@
 {
   "rust-analyzer.cargo.allTargets": false,
   "rust-analyzer.cargo.target": "riscv32imac-esp-espidf",
-}
+  "rust-analyzer.check.extraArgs": [
+        "--target", "riscv32imac-esp-espidf"
+      ],
+  "rust-analyzer.inlayHints.chainingHints.enable": true,
+  "rust-analyzer.inlayHints.typeHints.enable": true,
+  "editor.inlayHints.enabled": "on",
+    
+  // Show parameter names
+  "rust-analyzer.inlayHints.parameterHints.enable": true,
+  }

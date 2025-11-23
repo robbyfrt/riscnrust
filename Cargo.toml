@@ -28,7 +28,8 @@ esp-idf-svc = "0.51"
 esp-idf-hal = "0.45.2"
 anyhow = "1.0.100"
 embedded-svc = "0.28.1"
-
+ssd1306 = { git = "https://github.com/rust-embedded-community/ssd1306", branch = "master" }
+embedded-graphics = "0.8"
 # --- Optional Embassy Integration ---
 # esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
 
