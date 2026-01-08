@@ -199,3 +199,35 @@ next:
 [  187.805613] usbcore: registered new interface driver cdc_acm
 [  187.805620] cdc_acm: USB Abstract Control Model driver for USB modems and ISDN adapters
 ```
+
+After giving myself rights to access ttyACM0:
+`sudo usermod -a -G dialout $USER`
+
+```sh
+# espflash board-info -c esp32c6
+[2026-01-08T21:03:35Z INFO ] 🚀 A new version of espflash is available: v4.3.0
+[2026-01-08T21:03:35Z INFO ] Serial port: '/dev/ttyACM0'
+[2026-01-08T21:03:35Z INFO ] Connecting...
+[2026-01-08T21:03:35Z INFO ] Using flash stub
+Chip type:         esp32c6 (revision v0.2)
+Crystal frequency: 40 MHz
+Flash size:        4MB
+Features:          WiFi 6, BT 5
+MAC address:       98:a3:16:8e:c7:c0
+
+Security Information:
+=====================
+Flags: 0x00000000 (0)
+Key Purposes: [0, 0, 0, 0, 0, 0, 12]
+Chip ID: 13
+API Version: 0
+Secure Boot: Disabled
+Flash Encryption: Disabled
+SPI Boot Crypt Count (SPI_BOOT_CRYPT_CNT): 0x0
+```
+
+For probe-rs to run, I had to set up udev rules:
+
+```sh
+curl -fsSL https://probe.rs/files/69-probe-rs.rules | sudo tee /etc/udev/rules.d/69-probe-rs.rules > /dev/null
+```
