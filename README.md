@@ -46,6 +46,7 @@ Use `esp-generate --chip esp32c6 myproject` and follow configuration as necessar
 - [Three LED on Xiao ESP32-C6](https://wokwi.com/projects/411265368570177537)
 - [Wiki - XIAO ESP32-C6 Getting Started ](https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/)
 - [Wokwi ESP32 Guide](https://docs.wokwi.com/guides/esp32)
+- [Github Awesome Embedded Rust](https://github.com/rust-embedded/awesome-embedded-rust)
 
 ### ESP-IDF
 - [ESP32-C6 IDF API Reference](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c6/api-reference/index.html)
