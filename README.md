@@ -183,3 +183,19 @@ next:
     - 32 MB PSRAM stacked in the package, and the QSPI interface is connected to 16MB Nor Flash
   - additional ESP32-C6 for connectivity
   - PoE, Mipi-CSI, Mipi-DSI
+  - [ESP Wiki](https://www.waveshare.com/wiki/ESP32-P4-Nano-StartPage#Overview)
+
+## First C6 COnnection:
+
+```sh
+# sudo dmesg
+[  187.639563] usb 1-1: new full-speed USB device number 5 using xhci_hcd
+[  187.767728] usb 1-1: New USB device found, idVendor=303a, idProduct=1001, bcdDevice= 1.02
+[  187.767745] usb 1-1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[  187.767751] usb 1-1: Product: USB JTAG/serial debug unit
+[  187.767755] usb 1-1: Manufacturer: Espressif
+[  187.767759] usb 1-1: SerialNumber: 98:A3:16:8E:C7:C0
+[  187.805522] cdc_acm 1-1:1.0: ttyACM0: USB ACM device
+[  187.805613] usbcore: registered new interface driver cdc_acm
+[  187.805620] cdc_acm: USB Abstract Control Model driver for USB modems and ISDN adapters
+```
