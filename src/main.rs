@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
     EspLogger::initialize_default();
 
     let peripherals = Peripherals::take()?;
-    let mut led = PinDriver::output(peripherals.pins.gpio0)?;
+    let mut led = PinDriver::output(peripherals.pins.gpio15)?;
     
     let mut i2c_config = I2cConfig::default();
     i2c_config.baudrate = 100000.into();

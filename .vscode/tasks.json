@@ -4,11 +4,8 @@
         {
             "label": "build-debug",
             "type": "shell",
-            "command": "sh",
-            "args": [
-                "-c",
-                "cargo build && espflash save-image --chip esp32c6 target/riscv32imac-esp-espidf/debug/${workspaceFolderBasename} target/riscv32imac-esp-espidf/debug/${workspaceFolderBasename}.img"
-            ],
+            "command": "cargo",
+            "args": ["espflash", "flash"],
             "group": {
                 "kind": "build",
                 "isDefault": true
