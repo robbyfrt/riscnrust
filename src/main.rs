@@ -6,7 +6,6 @@ use esp_idf_hal::{
     gpio::PinDriver,
     i2c::{I2cDriver, I2cConfig},
     peripherals::Peripherals,
-    delay::FreeRtos
 };
 use esp_idf_svc::{
     log::EspLogger,
@@ -20,6 +19,7 @@ use esp_idf_svc::{
     nvs::EspDefaultNvsPartition,
     eventloop::EspSystemEventLoop,
     http::client::EspHttpConnection,
+    timer::EspTimerService,
 };
 use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
 use embedded_graphics::{
@@ -27,7 +27,8 @@ use embedded_graphics::{
     pixelcolor::BinaryColor,
     prelude::*,
     text::{Baseline, Text},
-};
+    primitives::{Rectangle,PrimitiveStyle}
+}; 
 
 use log::{info};
 
@@ -40,6 +41,7 @@ fn main() -> anyhow::Result<()> {
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     esp_idf_svc::sys::link_patches();
     EspLogger::initialize_default();
+    let timer_service = EspTimerService::new()?;
 
     let peripherals = Peripherals::take()?;
     let mut led = PinDriver::output(peripherals.pins.gpio15)?;
@@ -58,7 +60,7 @@ fn main() -> anyhow::Result<()> {
     let mut display = Ssd1306::new(
         interface,
         DisplaySize128x64,
-        DisplayRotation::Rotate0,
+        DisplayRotation::Rotate180
     ).into_buffered_graphics_mode();
     display.init().unwrap();
 
@@ -70,6 +72,7 @@ fn main() -> anyhow::Result<()> {
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
 
+    led.set_low()?;
     let mut wifi = BlockingWifi::wrap(
         EspWifi::new(peripherals.modem, sys_loop.clone(), Some(nvs))?,
         sys_loop,
@@ -79,7 +82,7 @@ fn main() -> anyhow::Result<()> {
 
     connect_wifi(&mut wifi)?;
     let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
-
+    led.set_high()?;
     log_info_and_display(&mut display, &format!("Wifi DHCP info: {ip_info:?}"), text_style.clone())?;
     display.flush().unwrap();
 
@@ -89,22 +92,21 @@ fn main() -> anyhow::Result<()> {
     let result = get_request(&mut client)?;
     log_info_and_display(&mut display, &format!("GET: {}", &result), text_style.clone())?;
     display.flush().unwrap();
-    info!("Shutting down in 5s...");
+
 
     std::thread::sleep(core::time::Duration::from_secs(5));
 
+    let _ = display.clear(BinaryColor::Off);
     let mut some_int: u32 = 0;
+    let mut now = timer_service.now();
     loop {
-        led.set_high()?;
+        let time_taken =  timer_service.now();
         let rssi = &wifi.wifi().get_rssi()?;
-        let _ = display.clear(BinaryColor::Off);
-        let text: String = format!("WifiSignal: {}dB, Count: {}", &rssi, &some_int);
-        log_info_and_display(&mut display, &text, text_style.clone())?;
+        update_line(&mut display, 0, &format!("wifi: {}dB", &rssi), text_style.clone())?;
+        update_line(&mut display, 1, &format!("cnt: {}, t: {}ms", &some_int, (time_taken - now).as_millis()), text_style.clone())?;
         display.flush().unwrap();
-
-
-        led.set_low()?;
-        FreeRtos::delay_ms(50);
+        
+        now = time_taken;
         some_int = some_int.wrapping_add(1);
     }
 }
@@ -173,6 +175,34 @@ where
             .draw(display)
             .map_err(|_| anyhow::anyhow!("draw error"))?;
     }
+    Ok(())
+}
+
+fn update_line<'a, D>(
+    display: &mut D,
+    line_number: usize,
+    message: &str,
+    text_style: MonoTextStyle<'a, BinaryColor>,
+) -> anyhow::Result<()>
+where
+    D: embedded_graphics::prelude::DrawTarget<Color = BinaryColor>,
+{
+    let _ = Rectangle::new(
+        Point::new(0, (line_number * 10) as i32),
+        Size::new(128, 10),
+    )
+    .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
+    .draw(display)
+    .map_err(|_| anyhow::anyhow!("draw error"))?;
+
+    Text::with_baseline(
+        message,
+        Point::new(0, (line_number * 10) as i32),
+        text_style,
+        Baseline::Top,
+    )
+    .draw(display)
+    .map_err(|_| anyhow::anyhow!("draw error"))?;
     Ok(())
 }
 
