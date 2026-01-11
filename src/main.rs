@@ -29,10 +29,10 @@ use embedded_graphics::{
     text::{Baseline, Text},
 };
 
-use log::{error, info};
+use log::{info};
 
-const SSID: &str = "Wokwi-GUEST";
-const PASSWORD: &str = "";
+const SSID: &str = env!("WIFI_SSID");
+const PASSWORD: &str = env!("WIFI_PASSWORD");
 
 
 fn main() -> anyhow::Result<()> {
@@ -86,22 +86,23 @@ fn main() -> anyhow::Result<()> {
     let mut client = HttpClient::wrap(EspHttpConnection::new(&Default::default())?);
 
     // GET
-    get_request(&mut client)?;
+    let result = get_request(&mut client)?;
+    log_info_and_display(&mut display, &format!("GET: {}", &result), text_style.clone())?;
+    display.flush().unwrap();
     info!("Shutting down in 5s...");
 
     std::thread::sleep(core::time::Duration::from_secs(5));
 
-    let mut some_int: u8 = 0;
+    let mut some_int: u32 = 0;
     loop {
+        led.set_high()?;
+        let rssi = &wifi.wifi().get_rssi()?;
         let _ = display.clear(BinaryColor::Off);
-        let text: String = format!("Count: {}", &some_int);
-        Text::with_baseline(&text, Point::new(0, 16), text_style, Baseline::Top)
-            .draw(&mut display)
-            .unwrap();
+        let text: String = format!("WifiSignal: {}dB, Count: {}", &rssi, &some_int);
+        log_info_and_display(&mut display, &text, text_style.clone())?;
         display.flush().unwrap();
 
-        led.set_high()?;
-        FreeRtos::delay_ms(50);
+
         led.set_low()?;
         FreeRtos::delay_ms(50);
         some_int = some_int.wrapping_add(1);
@@ -109,13 +110,11 @@ fn main() -> anyhow::Result<()> {
 }
 
 /// Send an HTTP GET request.
-fn get_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<()> {
+fn get_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<String> {
     // Prepare headers and URL
     let headers = [("accept", "text/plain")];
     let url = "http://ifconfig.net/";
 
-    // Send request
-    //
     // Note: If you don't want to pass in any headers, you can also use `client.get(url, headers)`.
     let request = client.request(Method::Get, url, &headers)?;
     info!("-> GET {url}");
@@ -124,19 +123,14 @@ fn get_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<()>
     // Process response
     let status = response.status();
     info!("<- {status}");
-    let mut buf = [0u8; 1024];
-    let bytes_read = io::try_read_full(&mut response, &mut buf).map_err(|e| e.0)?;
-    info!("Read {bytes_read} bytes");
-    match std::str::from_utf8(&buf[0..bytes_read]) {
-        Ok(body_string) => info!(
-            "Response body (truncated to {} bytes): {:?}",
-            buf.len(),
-            body_string
-        ),
-        Err(e) => error!("Error decoding response body: {e}"),
-    };
 
-    Ok(())
+    let mut buf: [u8; _] = [0u8; 0b10_000]; // 10 KB buffer 
+
+    let bytes_read = io::try_read_full(&mut response, &mut buf).map_err(|e| e.0)?;
+    info!("Read {bytes_read} bytes of response body");
+    // return response body as &str
+    let body = std::str::from_utf8(&buf[0..bytes_read])?.to_owned();
+    Ok(body)
 }
 
 fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {
@@ -173,8 +167,21 @@ where
 {
     info!("{}", message);
     let _ = display.clear(BinaryColor::Off);
-    Text::with_baseline(message, Point::new(0, 0), text_style, Baseline::Top)
-        .draw(display)
-        .map_err(|_| anyhow::anyhow!("draw error"))?;
+    for (i,line) in wrap_text(message, (128, 64), (6, 10)).iter().enumerate() {
+
+        Text::with_baseline(line, Point::new(0, (i * 10) as i32), text_style, Baseline::Top)
+            .draw(display)
+            .map_err(|_| anyhow::anyhow!("draw error"))?;
+    }
     Ok(())
+}
+
+fn wrap_text(text: &str, display_size: (usize,usize), font_size: (usize,usize)) ->  Vec<&str> {
+    let   display_width_chars = display_size.0 / font_size.0;
+    let _display_height_chars = display_size.1 / font_size.1;
+
+    text.as_bytes()
+        .chunks(display_width_chars)
+        .map(|c| std::str::from_utf8(c).unwrap())
+        .collect()
 }

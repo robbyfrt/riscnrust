@@ -5,7 +5,7 @@
             "label": "build-debug",
             "type": "shell",
             "command": "cargo",
-            "args": ["espflash", "flash"],
+            "args": ["espflash", "flash", "--monitor"],
             "group": {
                 "kind": "build",
                 "isDefault": true
