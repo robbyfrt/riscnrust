@@ -1,3 +1,5 @@
+mod wifi;
+
 use embedded_svc::{
     http::{client::Client as HttpClient, Method},
     utils::io};
@@ -9,13 +11,6 @@ use esp_idf_hal::{
 };
 use esp_idf_svc::{
     log::EspLogger,
-    wifi::{
-        BlockingWifi,
-        EspWifi,
-        Configuration,
-        ClientConfiguration,
-        AuthMethod,
-    },
     nvs::EspDefaultNvsPartition,
     eventloop::EspSystemEventLoop,
     http::client::EspHttpConnection,
@@ -50,7 +45,7 @@ fn main() -> anyhow::Result<()> {
     let mut ext_antenna = PinDriver::output(peripherals.pins.gpio14)?;
     rf_switch.set_low()?; // Set to use the antenna
     ext_antenna.set_high()?; // Set to use the external antenna
-    
+
     let mut i2c_config = I2cConfig::default();
     i2c_config.baudrate = 100000.into();
     let i2c = I2cDriver::new(
@@ -78,16 +73,18 @@ fn main() -> anyhow::Result<()> {
     let nvs = EspDefaultNvsPartition::take()?;
 
     led.set_low()?;
-    let mut wifi = BlockingWifi::wrap(
-        EspWifi::new(peripherals.modem, sys_loop.clone(), Some(nvs))?,
-        sys_loop,
-    )?;
     log_info_and_display(&mut display, "Connecting to WiFi...", text_style.clone())?;
     display.flush().unwrap();
-
-    connect_wifi(&mut wifi)?;
-    let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
+    let mut wifi = wifi::WifiManager::new(
+        sys_loop,
+        peripherals.modem,
+        nvs,
+        SSID,
+        PASSWORD,
+    )?;
+    let ip_info = wifi.get_ip_info()?;
     led.set_high()?;
+
     log_info_and_display(&mut display, &format!("Wifi DHCP info: {ip_info:?}"), text_style.clone())?;
     display.flush().unwrap();
 
@@ -106,7 +103,7 @@ fn main() -> anyhow::Result<()> {
     let mut now = timer_service.now();
     loop {
         let time_taken =  timer_service.now();
-        let rssi = &wifi.wifi().get_rssi()?;
+        let rssi = &wifi.get_signal_strength()?;
         update_line(&mut display, 0, &format!("wifi: {}dB", &rssi), text_style.clone())?;
         update_line(&mut display, 1, &format!("cnt: {}, t: {}ms", &some_int, (time_taken - now).as_millis()), text_style.clone())?;
         display.flush().unwrap();
@@ -140,29 +137,6 @@ fn get_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<Str
     Ok(body)
 }
 
-fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {
-    let wifi_configuration: Configuration = Configuration::Client(ClientConfiguration {
-        ssid: SSID.try_into().unwrap(),
-        bssid: None,
-        auth_method: AuthMethod::None,
-        password: PASSWORD.try_into().unwrap(),
-        channel: None,
-        ..Default::default()
-    });
-
-    wifi.set_configuration(&wifi_configuration)?;
-
-    wifi.start()?;
-    info!("Wifi started");
-
-    wifi.connect()?;
-    info!("Wifi connected");
-
-    wifi.wait_netif_up()?;
-    info!("Wifi netif up");
-
-    Ok(())
-}
 
 fn log_info_and_display<'a, D>(
     display: &mut D,
