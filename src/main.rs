@@ -45,6 +45,11 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = Peripherals::take()?;
     let mut led = PinDriver::output(peripherals.pins.gpio15)?;
+
+    let mut rf_switch = PinDriver::output(peripherals.pins.gpio3)?;
+    let mut ext_antenna = PinDriver::output(peripherals.pins.gpio14)?;
+    rf_switch.set_low()?; // Set to use the antenna
+    ext_antenna.set_high()?; // Set to use the external antenna
     
     let mut i2c_config = I2cConfig::default();
     i2c_config.baudrate = 100000.into();
