@@ -1,11 +1,13 @@
 mod wifi;
+mod display;
+mod timer;
 
 use embedded_svc::{
     http::{client::Client as HttpClient, Method},
     utils::io};
 
 use esp_idf_hal::{
-    gpio::PinDriver,
+    gpio::{PinDriver, Pull},
     i2c::{I2cDriver, I2cConfig},
     peripherals::Peripherals,
 };
@@ -14,16 +16,10 @@ use esp_idf_svc::{
     nvs::EspDefaultNvsPartition,
     eventloop::EspSystemEventLoop,
     http::client::EspHttpConnection,
-    timer::EspTimerService,
 };
-use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
-use embedded_graphics::{
-    mono_font::{MonoTextStyle, MonoTextStyleBuilder, ascii::FONT_6X10},
-    pixelcolor::BinaryColor,
-    prelude::*,
-    text::{Baseline, Text},
-    primitives::{Rectangle,PrimitiveStyle}
-}; 
+use ssd1306::{
+    I2CDisplayInterface,
+    rotation::DisplayRotation::*};
 
 use log::{info};
 
@@ -36,13 +32,16 @@ fn main() -> anyhow::Result<()> {
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     esp_idf_svc::sys::link_patches();
     EspLogger::initialize_default();
-    let timer_service = EspTimerService::new()?;
+    let mut timer = timer::Timer::new();
 
     let peripherals = Peripherals::take()?;
     let mut led = PinDriver::output(peripherals.pins.gpio15)?;
 
     let mut rf_switch = PinDriver::output(peripherals.pins.gpio3)?;
     let mut ext_antenna = PinDriver::output(peripherals.pins.gpio14)?;
+    let mut button = PinDriver::input(peripherals.pins.gpio1)?;
+    button.set_pull(Pull::Up)?;
+
     rf_switch.set_low()?; // Set to use the antenna
     ext_antenna.set_high()?; // Set to use the external antenna
 
@@ -57,58 +56,37 @@ fn main() -> anyhow::Result<()> {
 
 
     let interface = I2CDisplayInterface::new(i2c);
-    let mut display = Ssd1306::new(
-        interface,
-        DisplaySize128x64,
-        DisplayRotation::Rotate180
-    ).into_buffered_graphics_mode();
-    display.init().unwrap();
-
-    let text_style = MonoTextStyleBuilder::new()
-        .font(&FONT_6X10)
-        .text_color(BinaryColor::On)
-        .build();
+    let mut display_mgr = display::DisplayManager::new(interface, Rotate180)?;
 
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
 
     led.set_low()?;
-    log_info_and_display(&mut display, "Connecting to WiFi...", text_style.clone())?;
-    display.flush().unwrap();
-    let mut wifi = wifi::WifiManager::new(
-        sys_loop,
-        peripherals.modem,
-        nvs,
-        SSID,
-        PASSWORD,
-    )?;
+    display_mgr.log_and_show("Connecting to WiFi...")?;
+    let mut wifi = wifi::WifiManager::new(sys_loop, peripherals.modem, nvs, SSID, PASSWORD)?;
     let ip_info = wifi.get_ip_info()?;
     led.set_high()?;
+    display_mgr.log_and_show(&format!("Wifi DHCP info: {ip_info:?}"))?;
 
-    log_info_and_display(&mut display, &format!("Wifi DHCP info: {ip_info:?}"), text_style.clone())?;
-    display.flush().unwrap();
 
     let mut client = HttpClient::wrap(EspHttpConnection::new(&Default::default())?);
 
     // GET
     let result = get_request(&mut client)?;
-    log_info_and_display(&mut display, &format!("GET: {}", &result), text_style.clone())?;
-    display.flush().unwrap();
+    display_mgr.log_and_show(&format!("GET: {}", &result))?;
 
+    std::thread::sleep(core::time::Duration::from_secs(3));
 
-    std::thread::sleep(core::time::Duration::from_secs(5));
-
-    let _ = display.clear(BinaryColor::Off);
+    display_mgr.clear()?;
     let mut some_int: u32 = 0;
-    let mut now = timer_service.now();
+    timer.elapsed(); // reset timer
     loop {
-        let time_taken =  timer_service.now();
-        let rssi = &wifi.get_signal_strength()?;
-        update_line(&mut display, 0, &format!("wifi: {}dB", &rssi), text_style.clone())?;
-        update_line(&mut display, 1, &format!("cnt: {}, t: {}ms", &some_int, (time_taken - now).as_millis()), text_style.clone())?;
-        display.flush().unwrap();
-        
-        now = time_taken;
+        let rssi = wifi.get_signal_strength()?;
+        let btn_state = button.is_low();
+        display_mgr.update_line(0, &format!("wifi: {}dB, btn: {}", rssi, btn_state))?;
+        display_mgr.update_line(1, &format!("cnt: {}, t: {}ms", &some_int, timer.elapsed().as_millis()))?;
+        display_mgr.flush().unwrap();
+
         some_int = some_int.wrapping_add(1);
     }
 }
@@ -138,59 +116,3 @@ fn get_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<Str
 }
 
 
-fn log_info_and_display<'a, D>(
-    display: &mut D,
-    message: &str,
-    text_style: MonoTextStyle<'a, BinaryColor>,
-) -> anyhow::Result<()>
-where
-    D: embedded_graphics::prelude::DrawTarget<Color = BinaryColor>,
-{
-    info!("{}", message);
-    let _ = display.clear(BinaryColor::Off);
-    for (i,line) in wrap_text(message, (128, 64), (6, 10)).iter().enumerate() {
-
-        Text::with_baseline(line, Point::new(0, (i * 10) as i32), text_style, Baseline::Top)
-            .draw(display)
-            .map_err(|_| anyhow::anyhow!("draw error"))?;
-    }
-    Ok(())
-}
-
-fn update_line<'a, D>(
-    display: &mut D,
-    line_number: usize,
-    message: &str,
-    text_style: MonoTextStyle<'a, BinaryColor>,
-) -> anyhow::Result<()>
-where
-    D: embedded_graphics::prelude::DrawTarget<Color = BinaryColor>,
-{
-    let _ = Rectangle::new(
-        Point::new(0, (line_number * 10) as i32),
-        Size::new(128, 10),
-    )
-    .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
-    .draw(display)
-    .map_err(|_| anyhow::anyhow!("draw error"))?;
-
-    Text::with_baseline(
-        message,
-        Point::new(0, (line_number * 10) as i32),
-        text_style,
-        Baseline::Top,
-    )
-    .draw(display)
-    .map_err(|_| anyhow::anyhow!("draw error"))?;
-    Ok(())
-}
-
-fn wrap_text(text: &str, display_size: (usize,usize), font_size: (usize,usize)) ->  Vec<&str> {
-    let   display_width_chars = display_size.0 / font_size.0;
-    let _display_height_chars = display_size.1 / font_size.1;
-
-    text.as_bytes()
-        .chunks(display_width_chars)
-        .map(|c| std::str::from_utf8(c).unwrap())
-        .collect()
-}

@@ -151,12 +151,12 @@ flowchart TD
 ```
 
 ## Hardware Overview
-- ESP32-C6 from seeedstudio xiao series
+- [ESP32-C6 from seeedstudio xiao series](https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/)
   - 160MHz 320KB ROM, 512KB SRAM
   - RiscV core, ble, wifi, thread
   - 20mHz low power core
 - Xiao Starter Kit
-  - Xiao Expansion Board
+  - [Xiao Expansion Board](https://wiki.seeedstudio.com/Seeeduino-XIAO-Expansion-Board/)
     - OLED Display: SSD1306
     - clock: PCF8563
   - several other Grove Sensors
