@@ -49,8 +49,20 @@ impl WifiManager {
         let ip_info = self.wifi.wifi().sta_netif().get_ip_info()?;
         Ok(format!("{ip_info:?}"))
     }
-    pub fn get_signal_strength(&mut self) -> anyhow::Result<i32> {
+    pub fn get_signal_strength(&mut self, as_bars: bool) -> anyhow::Result<i32> {
         let strength = self.wifi.wifi().get_rssi()?;
+        if as_bars {
+            let bars = match strength {
+                s if s >= -50 => 5,
+                s if s >= -60 => 4,
+                s if s >= -70 => 3,
+                s if s >= -80 => 2,
+                s if s >= -90 => 1,
+                _ => 0,
+            };
+            Ok(bars)
+        } else {
         Ok(strength)
+        }
     }
 }

@@ -2,6 +2,8 @@ mod wifi;
 mod display;
 mod timer;
 
+use std::time::Duration;
+
 use embedded_svc::{
     http::{client::Client as HttpClient, Method},
     utils::io};
@@ -47,19 +49,27 @@ fn main() -> anyhow::Result<()> {
 
     let mut i2c_config = I2cConfig::default();
     i2c_config.baudrate = 100000.into();
-    let i2c = I2cDriver::new(
+    let mut i2c = I2cDriver::new(
         peripherals.i2c0,
         peripherals.pins.gpio22,
         peripherals.pins.gpio23,
         &i2c_config,
     )?;
-
+    scan_i2c(&mut i2c);
 
     let interface = I2CDisplayInterface::new(i2c);
     let mut display_mgr = display::DisplayManager::new(interface, Rotate180)?;
 
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
+
+    if button.is_low() {
+        display_mgr.log_and_show("Entering alternative mode")?;
+        std::thread::sleep(core::time::Duration::from_secs(3));
+
+
+
+    }
 
     led.set_low()?;
     display_mgr.log_and_show("Connecting to WiFi...")?;
@@ -78,12 +88,13 @@ fn main() -> anyhow::Result<()> {
     std::thread::sleep(core::time::Duration::from_secs(3));
 
     display_mgr.clear()?;
+    display_mgr.draw_rect((0,20), (128,64))?;
     let mut some_int: u32 = 0;
     timer.elapsed(); // reset timer
     loop {
-        let rssi = wifi.get_signal_strength()?;
+        let signal = wifi.get_signal_strength(false)?;
         let btn_state = button.is_low();
-        display_mgr.update_line(0, &format!("wifi: {}dB, btn: {}", rssi, btn_state))?;
+        display_mgr.update_line(0, &format!("wifi: {}dB, btn: {}", signal, btn_state))?;
         display_mgr.update_line(1, &format!("cnt: {}, t: {}ms", &some_int, timer.elapsed().as_millis()))?;
         display_mgr.flush().unwrap();
 
@@ -115,4 +126,12 @@ fn get_request(client: &mut HttpClient<EspHttpConnection>) -> anyhow::Result<Str
     Ok(body)
 }
 
-
+fn scan_i2c(i2c: &mut I2cDriver) {
+    for addr in 0x03u8..0x78u8 {
+        let mut buf = [0u8; 1];
+        let timeout = Duration::from_millis(10).as_millis() as u32;
+        if i2c.read(addr, &mut buf, timeout).is_ok() {
+            info!("Found I2C device at 0x{:02X}", addr);
+        }
+    }
+}

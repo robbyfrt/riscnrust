@@ -231,3 +231,8 @@ For probe-rs to run, I had to set up udev rules:
 ```sh
 curl -fsSL https://probe.rs/files/69-probe-rs.rules | sudo tee /etc/udev/rules.d/69-probe-rs.rules > /dev/null
 ```
+
+## HW Adresses
+I (589) riscnrust: Found I2C device at 0x19 -> 3-axis-accelerometer LIS3DHTR
+I (588) riscnrust: Found I2C device at 0x3C -> OLED 0.96" ssd1316
+I (598) riscnrust: Found I2C device at 0x51 -> EEPROM or RTC
