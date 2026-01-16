@@ -1,6 +1,8 @@
 mod wifi;
 mod display;
 mod timer;
+mod blocking_lis3dh;
+use blocking_lis3dh::{BlockingI2cAdapter,block_on_lis3dh};
 
 use std::time::Duration;
 
@@ -22,6 +24,9 @@ use esp_idf_svc::{
 use ssd1306::{
     I2CDisplayInterface,
     rotation::DisplayRotation::*};
+use lis3dh_async::{SlaveAddr,Lis3dh};
+use core::cell::RefCell;
+use embedded_hal_bus::i2c::RefCellDevice;
 
 use log::{info};
 
@@ -49,27 +54,49 @@ fn main() -> anyhow::Result<()> {
 
     let mut i2c_config = I2cConfig::default();
     i2c_config.baudrate = 100000.into();
-    let mut i2c = I2cDriver::new(
+
+
+    let sys_loop = EspSystemEventLoop::take()?;
+    let nvs = EspDefaultNvsPartition::take()?;
+
+    let i2c = I2cDriver::new(
         peripherals.i2c0,
         peripherals.pins.gpio22,
         peripherals.pins.gpio23,
         &i2c_config,
     )?;
-    scan_i2c(&mut i2c);
+    
+    let shared_bus = RefCell::new(i2c);
 
-    let interface = I2CDisplayInterface::new(i2c);
+    // 2) Wrap each device in a RefCellDevice, all pointing to the same bus
+    let imu_i2c  = RefCellDevice::new(&shared_bus);
+    let oled_i2c = RefCellDevice::new(&shared_bus);
+
+    // scan_i2c(&mut i2c);
+    let interface = I2CDisplayInterface::new(oled_i2c);
     let mut display_mgr = display::DisplayManager::new(interface, Rotate180)?;
-
-    let sys_loop = EspSystemEventLoop::take()?;
-    let nvs = EspDefaultNvsPartition::take()?;
+    
 
     if button.is_low() {
-        display_mgr.log_and_show("Entering alternative mode")?;
+        display_mgr.log_and_show("entering imu usage...")?;
+        let adapter = BlockingI2cAdapter::new(imu_i2c);
+        let mut accelerometer = block_on_lis3dh(
+        Lis3dh::new_i2c(adapter, SlaveAddr::Alternate)
+        )?;
+    
+        block_on_lis3dh(accelerometer.set_datarate(lis3dh_async::DataRate::Hz_100))?;
+        block_on_lis3dh(accelerometer.set_range(lis3dh_async::Range::G2))?;
         std::thread::sleep(core::time::Duration::from_secs(3));
 
-
-
+        loop {
+            if button.is_high() { break };
+            let a = block_on_lis3dh(accelerometer.accel_raw())?;
+            display_mgr.update_line(0,&format!("{:?},{:?},{:?}",a.x,a.y,a.z))?;
+            display_mgr.flush()?;
+            std::thread::sleep(core::time::Duration::from_millis(100));
+        }
     }
+    
 
     led.set_low()?;
     display_mgr.log_and_show("Connecting to WiFi...")?;

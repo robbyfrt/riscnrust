@@ -233,6 +233,6 @@ curl -fsSL https://probe.rs/files/69-probe-rs.rules | sudo tee /etc/udev/rules.d
 ```
 
 ## HW Adresses
-I (589) riscnrust: Found I2C device at 0x19 -> 3-axis-accelerometer LIS3DHTR
+I (589) riscnrust: Found I2C device at 0x19 -> 3-axis-accelerometer LIS3DHTR <--driver only does embedded-hal 0.2.0
 I (588) riscnrust: Found I2C device at 0x3C -> OLED 0.96" ssd1316
 I (598) riscnrust: Found I2C device at 0x51 -> EEPROM or RTC

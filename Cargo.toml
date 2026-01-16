@@ -30,6 +30,11 @@ anyhow = "1.0.100"
 embedded-svc = "0.28.1"
 ssd1306 = { git = "https://github.com/rust-embedded-community/ssd1306", branch = "master" }
 embedded-graphics = "0.8"
+lis3dh-async = "0.9.3"
+embedded-hal = "1.0.0"
+embedded-hal-async = "1.0.0"
+futures-lite = "2.6.1"
+embedded-hal-bus = "0.3.0"
 # --- Optional Embassy Integration ---
 # esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
 
